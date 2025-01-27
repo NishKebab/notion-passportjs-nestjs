@@ -70,29 +70,27 @@ export class NotionStrategy extends PassportStrategy(Strategy, 'notion') {
     this.clientSecret = config.clientSecret;
     this.redirectUri = config.callbackURL;
   }
-
+  
   /**
-   * Handles successful authentication.
-   * @param user - The authenticated user data.
+   * Authenticates the user using the OAuth2 code from Notion.
+   * @param req - The incoming request object.
+   * @param options - Additional options for authentication.
    */
-  success(user: NotionOAuthResponse): void {
-    super.success(user);
-  }
+  async authenticate(req: Request, options: any): Promise<void> {
+    if (!req.query.code) {
+      options.state = req.query.email;
+      return super.authenticate(req, options);
+    }
 
-  /**
-   * Handles authentication errors.
-   * @param err - The error encountered during authentication.
-   */
-  error(err: Error): void {
-    super.error(err);
-  }
+    try {
+      const oauthData = await this.fetchOAuthToken(req.query.code as string);
+      const email = req.query.state;
 
-  /**
-   * Returns the current Notion API version.
-   * @returns The Notion API version as a string.
-   */
-  public static getNotionApiVersion(): string {
-    return '2022-06-28';
+      this.success({ ...oauthData, email });
+    } catch (error) {
+      this.logger.error('Error authenticating Notion user:', error);
+      this.error(error);
+    }
   }
 
   /**
@@ -126,24 +124,26 @@ export class NotionStrategy extends PassportStrategy(Strategy, 'notion') {
   }
 
   /**
-   * Authenticates the user using the OAuth2 code from Notion.
-   * @param req - The incoming request object.
-   * @param options - Additional options for authentication.
+   * Handles successful authentication.
+   * @param user - The authenticated user data.
    */
-  async authenticate(req: Request, options: any): Promise<void> {
-    if (!req.query.code) {
-      options.state = req.query.email;
-      return super.authenticate(req, options);
-    }
+  success(user: NotionOAuthResponse): void {
+    super.success(user);
+  }
 
-    try {
-      const oauthData = await this.fetchOAuthToken(req.query.code as string);
-      const email = req.query.state;
+  /**
+   * Handles authentication errors.
+   * @param err - The error encountered during authentication.
+   */
+  error(err: Error): void {
+    super.error(err);
+  }
 
-      this.success({ ...oauthData, email });
-    } catch (error) {
-      this.logger.error('Error authenticating Notion user:', error);
-      this.error(error);
-    }
+  /**
+   * Returns the current Notion API version.
+   * @returns The Notion API version as a string.
+   */
+  public static getNotionApiVersion(): string {
+    return '2022-06-28';
   }
 }
